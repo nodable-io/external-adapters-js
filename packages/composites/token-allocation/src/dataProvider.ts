@@ -49,6 +49,7 @@ export const getPriceProvider = (
       ...apiConfig,
       data,
     })
+    
     const payloadEntries = symbols.map((symbol) => {
       const key = symbol
       const val = {

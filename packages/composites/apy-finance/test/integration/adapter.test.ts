@@ -1,6 +1,6 @@
 import { AdapterRequest, Execute } from '@chainlink/types'
 import * as apyFinanceAdapter from "../../src/index"
-import { ethers, BigNumber } from 'ethers'
+import { ethers } from 'ethers'
 
 const mockData = {
     '1': {
@@ -35,9 +35,9 @@ jest.mock("ethers", () => ({
   }
 }))
 
-jest.mock("@chainlink/token-allocation-adapter", () => ({
-  ...(jest.requireActual("@chainlink/token-allocation-adapter")),
-  makeExecute: jest.fn().mockReturnValue(() => ({
+jest.mock("@chainlink/ea-bootstrap", () => ({
+  ...(jest.requireActual("@chainlink/ea-bootstrap")),
+  requester: jest.fn().mockReturnValue(() => ({
     "jobRunID": "1",
     "data": {
       "sources": [],
