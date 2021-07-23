@@ -1,4 +1,4 @@
-import { ExecuteSync } from '@chainlink/types'
+import { ExecuteSync, AdapterContext, Middleware, Execute  } from '@chainlink/types'
 import { Payload } from './config/test-payload-loader'
 import express from 'express'
 import http from 'http'
@@ -11,7 +11,10 @@ import {
 } from './errors'
 import { logger } from './external-adapter'
 import { METRICS_ENABLED } from './metrics'
+import { defaultOptions } from './cache'
 import { toObjectWithNumbers } from './util'
+import { executeSync, withMiddleware } from '../index'
+
 const app = express()
 const port = process.env.EA_PORT || 8080
 const baseUrl = process.env.BASE_URL || '/'
@@ -27,10 +30,23 @@ type responseResult = {
   data: Record<string, number>
 }
 
-export const initHandler = (execute: ExecuteSync) => (): Promise<http.Server> => {
+export const initHandler = (execute: Execute, middleware: Middleware[]) => async (): Promise<
+  http.Server
+> => {
+  const context: AdapterContext = {
+    cache: null,
+  }
+  const cacheOptions = defaultOptions()
+  if (cacheOptions.enabled) {
+    cacheOptions.instance = await cacheOptions.cacheBuilder(cacheOptions.cacheImplOptions)
+    context.cache = cacheOptions
+  }
   if (METRICS_ENABLED) {
     setupMetricsServer()
   }
+
+  const executeWithMiddleware = await withMiddleware(execute, context, middleware)
+
   app.use(express.json())
 
   app.post(baseUrl, (req, res) => {
@@ -43,7 +59,7 @@ export const initHandler = (execute: ExecuteSync) => (): Promise<http.Server> =>
       ...(req.body.data || {}),
       ...toObjectWithNumbers(req.query),
     }
-    return execute(req.body, (status, result) => {
+    return executeSync(req.body, executeWithMiddleware, context, (status, result) => {
       res.status(status).json(result)
     })
   })
@@ -55,10 +71,11 @@ export const initHandler = (execute: ExecuteSync) => (): Promise<http.Server> =>
     if (testPayload.isDefault) {
       return res.status(200).send('OK')
     }
-    return handlePayloads(testPayload, execute, res)
+    return handlePayloads(testPayload, executeWithMiddleware, res, context)
   })
 
   process.on('SIGINT', () => {
+    context.cache?.instance?.close()
     process.exit()
   })
 
@@ -70,12 +87,12 @@ export const initHandler = (execute: ExecuteSync) => (): Promise<http.Server> =>
   })
 }
 
-async function handlePayloads(testPayload: Payload, execute: ExecuteSync, res: any) {
+async function handlePayloads(testPayload: Payload, execute: ExecuteSync, res: any, context: AdapterContext) {
   const errors = []
   for (const index in testPayload.requests) {
     try {
       let response
-      await execute({ data: testPayload.requests[index], id: index }, (status: number, result: responseResult) => {
+      await execute({ data: testPayload.requests[index], id: index }, context, (status: number, result: responseResult) => {
         response = result
         if (status === 400) {
           errors.push(response)

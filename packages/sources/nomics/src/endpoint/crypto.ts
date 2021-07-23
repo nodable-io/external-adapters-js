@@ -13,7 +13,7 @@ export const supportedEndpoints = ['crypto', 'price', 'marketcap']
 export const endpointResultPaths = {
   crypto: 'price',
   price: 'price',
-  marketcap: 'marketc_ap',
+  marketcap: 'market_cap',
 }
 
 interface ResponseSchema {
@@ -122,7 +122,7 @@ const handleBatchedRequest = (
   ])
 }
 
-export const execute: ExecuteWithConfig<Config> = async (request, config) => {
+export const execute: ExecuteWithConfig<Config> = async (request, _, config) => {
   const validator = new Validator(request, inputParameters)
   if (validator.error) throw validator.error
 
