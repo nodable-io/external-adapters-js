@@ -153,7 +153,6 @@ export const execute: ExecuteWithConfig<Config> = async (request, _, config) => 
   }
 
   const key = params.id || _keyForSlug(response.data, params.slug || '') || params.symbol
-
   response.data.result = Requester.validateResultNumber(response.data, [
     'data',
     key,
